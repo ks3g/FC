@@ -23,7 +23,8 @@ from research.agents import (
     ClimateDataAgent,
     EmissionsAgent,
     VulnerabilityAgent,
-    AdaptationAgent
+    AdaptationAgent,
+    ValidationAgent
 )
 from data_collection.agents.pdf_data_agent import PDFDataCollectionAgent
 from presentation.presentation_agent import PresentationAgent
@@ -60,14 +61,15 @@ def init_orchestrator():
     # Register all LLM-powered agents
     # Note: Orchestrator automatically runs agents in this order:
     # 1. Data collection agents (parallel) - ClimateData, Emissions, Vulnerability, Adaptation, PDFData
-    # 2. Validation agent (sequential)
-    # 3. Presentation agent (sequential, waits for all others)
+    # 2. Validation agent (sequential, waits for all data agents)
+    # 3. Presentation agent (sequential, waits for validation)
     agents = [
         ClimateDataAgent(agent_id="climate_001", config=llm_config),
         EmissionsAgent(agent_id="emissions_001", config=llm_config),
         VulnerabilityAgent(agent_id="vulnerability_001", config=llm_config),
         AdaptationAgent(agent_id="adaptation_001", config=llm_config),
         PDFDataCollectionAgent(agent_id="pdf_data_001", config=llm_config),
+        ValidationAgent(agent_id="validation_001", config=llm_config),
         PresentationAgent(agent_id="presentation_001", config=llm_config)
     ]
 
