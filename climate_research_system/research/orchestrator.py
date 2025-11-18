@@ -6,6 +6,9 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 import sys
 from pathlib import Path
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 sys.path.append(str(Path(__file__).parent.parent))
 from core.agent_base import Agent, AgentStatus
@@ -199,6 +202,227 @@ class ResearchOrchestrator:
 
         self.logger.info(f"Research completed for {city}, {country}")
         return results
+
+    def research_city_parallel(
+        self,
+        city: str,
+        country: str,
+        max_workers: Optional[int] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Conduct comprehensive research on a city with PARALLEL execution.
+
+        Data collection agents run in parallel for faster results.
+        ValidationAgent still runs sequentially after all agents complete.
+
+        Args:
+            city: City name
+            country: Country name
+            max_workers: Maximum parallel workers (default: number of agents)
+            **kwargs: Additional parameters for agents
+
+        Returns:
+            Comprehensive research results (same format as research_city)
+        """
+        research_id = f"{city.lower().replace(' ', '_')}_{country.lower()}"
+        self.logger.info(f"Starting PARALLEL research for: {city}, {country}")
+
+        research_task = {
+            'city': city,
+            'country': country,
+            'research_id': research_id,
+            'started_at': datetime.now().isoformat(),
+            **kwargs
+        }
+
+        # Separate validation agent from data collection agents
+        validation_agent = None
+        data_agents = {}
+
+        for agent_id, agent in self.agents.items():
+            if 'validation' in agent_id.lower() or agent.name == "ValidationAgent":
+                validation_agent = agent
+            else:
+                data_agents[agent_id] = agent
+
+        # Execute data collection agents IN PARALLEL
+        start_time = time.time()
+        agent_results = self._execute_agents_parallel(
+            agents=data_agents,
+            research_task=research_task,
+            max_workers=max_workers
+        )
+        execution_time = time.time() - start_time
+
+        self.logger.info(f"Parallel execution completed in {execution_time:.2f} seconds")
+
+        # Execute validation agent with all agent results (sequential)
+        validation_report = {}
+        if validation_agent:
+            self.logger.info(f"Executing validation: {validation_agent.name}")
+            try:
+                validation_task = {
+                    'city': city,
+                    'country': country,
+                    'agent_results': agent_results,
+                    **kwargs
+                }
+                message = Message(
+                    type=MessageType.REQUEST,
+                    sender="orchestrator",
+                    recipient=validation_agent.agent_id,
+                    payload=validation_task
+                )
+                response = validation_agent.handle_message(message)
+
+                if response and response.type == MessageType.RESPONSE:
+                    validation_report = response.payload
+                    self.logger.info(f"✓ Validation completed")
+                else:
+                    self.logger.warning("Validation agent produced no response")
+                    validation_report = self._cross_validate_results({'agent_results': agent_results})
+
+            except Exception as e:
+                self.logger.error(f"✗ Validation error: {str(e)}")
+                validation_report = self._cross_validate_results({'agent_results': agent_results})
+        else:
+            # Fallback to basic validation if no ValidationAgent
+            self.logger.info("No ValidationAgent registered, using basic validation")
+            validation_report = self._cross_validate_results({'agent_results': agent_results})
+
+        # Aggregate results
+        results = self._aggregate_results(city, country, research_id, agent_results)
+        results['validation_report'] = validation_report
+
+        # Add execution time metadata
+        results['metadata']['execution_time_seconds'] = round(execution_time, 2)
+        results['metadata']['execution_mode'] = 'parallel'
+
+        # Add source tracking from validation
+        if 'sources' in validation_report:
+            results['sources'] = validation_report['sources']
+            results['total_sources'] = validation_report.get('total_sources', 0)
+
+        if 'provenance_report' in validation_report:
+            results['provenance'] = validation_report['provenance_report']
+
+        # Save results
+        self.state_manager.save_research_results(research_id, results)
+        self.state_manager.save_validation_report(research_id, validation_report)
+
+        # Update history
+        self.research_history.append({
+            'research_id': research_id,
+            'city': city,
+            'country': country,
+            'completed_at': datetime.now().isoformat(),
+            'agents_used': list(self.agents.keys()),
+            'status': 'completed',
+            'execution_time': execution_time,
+            'execution_mode': 'parallel'
+        })
+
+        self.logger.info(f"Parallel research completed for {city}, {country} in {execution_time:.2f}s")
+        return results
+
+    def _execute_agents_parallel(
+        self,
+        agents: Dict[str, Agent],
+        research_task: Dict[str, Any],
+        max_workers: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute multiple agents in parallel using ThreadPoolExecutor.
+
+        Args:
+            agents: Dictionary of agents to execute
+            research_task: Task payload for agents
+            max_workers: Maximum parallel workers
+
+        Returns:
+            Dictionary of agent results
+        """
+        agent_results = {}
+
+        if not agents:
+            return agent_results
+
+        # Default to number of agents if not specified
+        if max_workers is None:
+            max_workers = len(agents)
+
+        self.logger.info(f"Executing {len(agents)} agents in parallel (max_workers={max_workers})")
+
+        # Create executor
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all agents
+            future_to_agent = {}
+
+            for agent_id, agent in agents.items():
+                future = executor.submit(
+                    self._execute_single_agent,
+                    agent_id,
+                    agent,
+                    research_task
+                )
+                future_to_agent[future] = (agent_id, agent)
+
+            # Collect results as they complete
+            for future in as_completed(future_to_agent):
+                agent_id, agent = future_to_agent[future]
+
+                try:
+                    result = future.result(timeout=300)  # 5 minute timeout per agent
+                    agent_results[agent_id] = result
+
+                except Exception as e:
+                    self.logger.error(f"✗ {agent.name} parallel execution error: {str(e)}")
+                    agent_results[agent_id] = {'error': str(e)}
+
+        return agent_results
+
+    def _execute_single_agent(
+        self,
+        agent_id: str,
+        agent: Agent,
+        research_task: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Execute a single agent (helper for parallel execution).
+
+        Args:
+            agent_id: Agent identifier
+            agent: Agent instance
+            research_task: Task payload
+
+        Returns:
+            Agent result
+        """
+        self.logger.info(f"⚡ Executing agent in parallel: {agent.name}")
+
+        try:
+            message = Message(
+                type=MessageType.REQUEST,
+                sender="orchestrator",
+                recipient=agent_id,
+                payload=research_task
+            )
+            response = agent.handle_message(message)
+
+            if response and response.type == MessageType.RESPONSE:
+                self.logger.info(f"✓ {agent.name} completed successfully")
+                return response.payload
+            elif response and response.type == MessageType.ERROR:
+                self.logger.error(f"✗ {agent.name} error: {response.payload}")
+                return {'error': response.payload}
+            else:
+                self.logger.warning(f"? {agent.name} no response")
+                return {'error': 'No response from agent'}
+
+        except Exception as e:
+            self.logger.error(f"✗ {agent.name} exception: {str(e)}")
+            return {'error': str(e)}
 
     def _aggregate_results(
         self,
