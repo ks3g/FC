@@ -101,9 +101,19 @@ class ResearchOrchestrator:
             **kwargs
         }
 
-        # Execute all registered agents
-        agent_results = {}
+        # Separate validation agent from data collection agents
+        validation_agent = None
+        data_agents = {}
+
         for agent_id, agent in self.agents.items():
+            if 'validation' in agent_id.lower() or agent.name == "ValidationAgent":
+                validation_agent = agent
+            else:
+                data_agents[agent_id] = agent
+
+        # Execute data collection agents first
+        agent_results = {}
+        for agent_id, agent in data_agents.items():
             self.logger.info(f"Executing agent: {agent.name}")
             try:
                 message = Message(
@@ -127,12 +137,51 @@ class ResearchOrchestrator:
                 self.logger.error(f"✗ {agent.name} exception: {str(e)}")
                 agent_results[agent_id] = {'error': str(e)}
 
+        # Execute validation agent with all agent results
+        validation_report = {}
+        if validation_agent:
+            self.logger.info(f"Executing validation: {validation_agent.name}")
+            try:
+                validation_task = {
+                    'city': city,
+                    'country': country,
+                    'agent_results': agent_results,
+                    **kwargs
+                }
+                message = Message(
+                    type=MessageType.REQUEST,
+                    sender="orchestrator",
+                    recipient=validation_agent.agent_id,
+                    payload=validation_task
+                )
+                response = validation_agent.handle_message(message)
+
+                if response and response.type == MessageType.RESPONSE:
+                    validation_report = response.payload
+                    self.logger.info(f"✓ Validation completed")
+                else:
+                    self.logger.warning("Validation agent produced no response")
+                    validation_report = self._cross_validate_results({'agent_results': agent_results})
+
+            except Exception as e:
+                self.logger.error(f"✗ Validation error: {str(e)}")
+                validation_report = self._cross_validate_results({'agent_results': agent_results})
+        else:
+            # Fallback to basic validation if no ValidationAgent
+            self.logger.info("No ValidationAgent registered, using basic validation")
+            validation_report = self._cross_validate_results({'agent_results': agent_results})
+
         # Aggregate results
         results = self._aggregate_results(city, country, research_id, agent_results)
-
-        # Validate cross-agent consistency
-        validation_report = self._cross_validate_results(results)
         results['validation_report'] = validation_report
+
+        # Add source tracking from validation
+        if 'sources' in validation_report:
+            results['sources'] = validation_report['sources']
+            results['total_sources'] = validation_report.get('total_sources', 0)
+
+        if 'provenance_report' in validation_report:
+            results['provenance'] = validation_report['provenance_report']
 
         # Save results
         self.state_manager.save_research_results(research_id, results)

@@ -6,6 +6,7 @@ test.bin
 
 # Climate research system data
 climate_research_system/data/
+data/
 
 # Python cache
 __pycache__/

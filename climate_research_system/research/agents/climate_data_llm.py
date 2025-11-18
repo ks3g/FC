@@ -11,6 +11,13 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from core.agent_base import Agent, AgentStatus
+from core.source_tracker import (
+    SourceTracker,
+    DataSource,
+    SourceType,
+    ReliabilityTier,
+    CollectionMethod
+)
 
 
 class ClimateDataAgent(Agent):
@@ -42,6 +49,9 @@ class ClimateDataAgent(Agent):
                 }
         """
         super().__init__(agent_id, "Climate Data Agent", config)
+
+        # Initialize source tracking
+        self.source_tracker = SourceTracker()
 
         self.required_metrics = [
             'temperature_avg',
@@ -221,28 +231,55 @@ Provide specific, actionable insights suitable for city planning and climate ada
         }
 
     def _get_data_sources(self) -> list:
-        """Get list of data sources."""
-        return [
-            {
-                'name': 'LLM Climate Analysis',
-                'model': self.llm.model if self.llm else 'unknown',
-                'credibility': 'AI-Generated',
-                'accessed': datetime.now().isoformat(),
-                'note': 'AI model analysis based on climate science knowledge'
-            },
-            {
-                'name': 'NOAA Climate Data',
-                'url': 'https://www.ncdc.noaa.gov/cdo-web/',
-                'credibility': 'Tier 1',
-                'note': 'Referenced by AI model'
-            },
-            {
-                'name': 'World Bank Climate Portal',
-                'url': 'https://climateknowledgeportal.worldbank.org/',
-                'credibility': 'Tier 1',
-                'note': 'Referenced by AI model'
-            }
-        ]
+        """
+        Get list of data sources with full provenance tracking.
+
+        Returns:
+            List of source dictionaries
+        """
+        # Track data sources used for analysis
+        sources = []
+
+        # Source 1: LLM-generated analysis
+        llm_source = self.source_tracker.add_source(
+            url=f"llm://{self.llm.provider.value if hasattr(self.llm, 'provider') else 'mock'}/{self.llm.model if hasattr(self.llm, 'model') else 'unknown'}",
+            title=f"LLM Climate Analysis ({self.llm.model if hasattr(self.llm, 'model') else 'AI Model'})",
+            source_type=SourceType.API,
+            reliability_tier=ReliabilityTier.TIER_3,  # LLM-generated needs verification
+            collection_method=CollectionMethod.LLM_GENERATED,
+            methodology="AI model synthesis of climate science knowledge",
+            data_format="Natural language analysis"
+        )
+        sources.append(llm_source)
+
+        # Source 2: NOAA Climate Data (referenced)
+        noaa_source = self.source_tracker.add_source(
+            url="https://www.ncdc.noaa.gov/cdo-web/",
+            title="NOAA National Centers for Environmental Information",
+            source_type=SourceType.GOVERNMENT_AGENCY,
+            reliability_tier=ReliabilityTier.TIER_1,
+            collection_method=CollectionMethod.WEB_SEARCH,
+            methodology="Historical weather station measurements and satellite data",
+            data_format="Time series data",
+            metadata={'referenced_by': 'llm', 'primary_source': True}
+        )
+        sources.append(noaa_source)
+
+        # Source 3: World Bank Climate Portal (referenced)
+        wb_source = self.source_tracker.add_source(
+            url="https://climateknowledgeportal.worldbank.org/",
+            title="World Bank Climate Change Knowledge Portal",
+            source_type=SourceType.INTERNATIONAL_ORG,
+            reliability_tier=ReliabilityTier.TIER_1,
+            collection_method=CollectionMethod.WEB_SEARCH,
+            methodology="Aggregated climate data from multiple authoritative sources",
+            data_format="Statistical summaries",
+            metadata={'referenced_by': 'llm', 'primary_source': True}
+        )
+        sources.append(wb_source)
+
+        # Convert to dict format for results
+        return [s.to_dict() for s in sources]
 
     def validate(self, data: Any) -> Dict[str, Any]:
         """
