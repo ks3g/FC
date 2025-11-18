@@ -27,7 +27,13 @@ class LLMClient:
     Handles communication with different LLM providers.
     """
 
-    def __init__(self, provider: str, model: str, api_key: Optional[str] = None):
+    def __init__(
+        self,
+        provider: str,
+        model: str,
+        api_key: Optional[str] = None,
+        api_base: Optional[str] = None
+    ):
         """
         Initialize LLM client.
 
@@ -35,10 +41,12 @@ class LLMClient:
             provider: Provider name (anthropic, openai, ollama)
             model: Model name (e.g., claude-3-5-sonnet, gpt-4)
             api_key: API key (not needed for local models)
+            api_base: Custom API base URL (for local models or custom endpoints)
         """
         self.provider = LLMProvider(provider)
         self.model = model
         self.api_key = api_key or os.getenv(f"{provider.upper()}_API_KEY")
+        self.api_base = api_base  # Custom endpoint support
 
         # Initialize provider client
         self.client = self._initialize_client()
@@ -48,7 +56,10 @@ class LLMClient:
         if self.provider == LLMProvider.ANTHROPIC:
             try:
                 import anthropic
-                return anthropic.Anthropic(api_key=self.api_key)
+                client_kwargs = {'api_key': self.api_key}
+                if self.api_base:
+                    client_kwargs['base_url'] = self.api_base
+                return anthropic.Anthropic(**client_kwargs)
             except ImportError:
                 print("Warning: anthropic package not installed. Run: pip install anthropic")
                 return None
@@ -56,7 +67,10 @@ class LLMClient:
         elif self.provider == LLMProvider.OPENAI:
             try:
                 import openai
-                return openai.OpenAI(api_key=self.api_key)
+                client_kwargs = {'api_key': self.api_key}
+                if self.api_base:
+                    client_kwargs['base_url'] = self.api_base
+                return openai.OpenAI(**client_kwargs)
             except ImportError:
                 print("Warning: openai package not installed. Run: pip install openai")
                 return None
@@ -64,6 +78,10 @@ class LLMClient:
         elif self.provider == LLMProvider.OLLAMA:
             try:
                 import ollama
+                # Ollama client with custom host if specified
+                if self.api_base:
+                    # Ollama uses 'host' parameter
+                    return ollama.Client(host=self.api_base)
                 return ollama
             except ImportError:
                 print("Warning: ollama package not installed. Run: pip install ollama")
@@ -168,14 +186,28 @@ class LLMClient:
         if system_prompt:
             full_prompt = f"{system_prompt}\n\n{prompt}"
 
-        response = self.client.generate(
-            model=self.model,
-            prompt=full_prompt,
-            options={
-                'temperature': temperature,
-                'num_predict': max_tokens
-            }
-        )
+        # Check if client is an Ollama Client instance or module
+        if hasattr(self.client, 'generate'):
+            # Client instance
+            response = self.client.generate(
+                model=self.model,
+                prompt=full_prompt,
+                options={
+                    'temperature': temperature,
+                    'num_predict': max_tokens
+                }
+            )
+        else:
+            # Module (default ollama)
+            import ollama as ollama_module
+            response = ollama_module.generate(
+                model=self.model,
+                prompt=full_prompt,
+                options={
+                    'temperature': temperature,
+                    'num_predict': max_tokens
+                }
+            )
 
         return {
             'content': response['response'],

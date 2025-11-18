@@ -4,11 +4,14 @@
 # Web Framework
 Flask==3.0.0
 
+# Configuration Management
+PyYAML>=6.0
+
 # LLM Providers (install based on your choice)
 # Anthropic Claude (recommended)
 anthropic>=0.21.0
 
-# OpenAI GPT (alternative)
+# OpenAI GPT (alternative - also works with vLLM, LM Studio, Text Gen WebUI)
 # openai>=1.12.0
 
 # Ollama for local models (alternative)

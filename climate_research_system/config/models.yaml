@@ -1,0 +1,134 @@
+# Models Configuration for Climate Research System
+
+# Define your LLM models here. The system will use these configurations
+# for all agents. You can define multiple models and switch between them.
+
+# Default model (used if not specified otherwise)
+default_model: "local_llama"
+
+# Available models
+models:
+  # Local Ollama Model (Recommended for research centers)
+  local_llama:
+    title: "Local Llama 3"
+    provider: "ollama"
+    model: "llama3"
+    apiBase: "http://localhost:11434"  # Ollama default endpoint
+    apiKey: ""  # No key needed for local models
+    description: "Local Llama 3 model running on your infrastructure"
+    enabled: true
+
+  local_mixtral:
+    title: "Local Mixtral 8x7B"
+    provider: "ollama"
+    model: "mixtral"
+    apiBase: "http://localhost:11434"
+    apiKey: ""
+    description: "Powerful local model for detailed analysis"
+    enabled: true
+
+  # Custom Local Model Server
+  custom_local:
+    title: "Custom Local Model"
+    provider: "openai"  # Use OpenAI-compatible API
+    model: "your-model-name"
+    apiBase: "http://your-server:8000/v1"  # Your custom endpoint
+    apiKey: "your-optional-key"  # If your server requires auth
+    description: "Custom model running on your research center infrastructure"
+    enabled: false
+
+  # vLLM Server (OpenAI-compatible)
+  vllm_server:
+    title: "vLLM Llama 3 70B"
+    provider: "openai"  # vLLM is OpenAI-compatible
+    model: "llama-3-70b"
+    apiBase: "http://your-vllm-server:8000/v1"
+    apiKey: ""
+    description: "High-performance vLLM deployment"
+    enabled: false
+
+  # LM Studio (Local)
+  lm_studio:
+    title: "LM Studio Local Model"
+    provider: "openai"  # LM Studio is OpenAI-compatible
+    model: "local-model"
+    apiBase: "http://localhost:1234/v1"
+    apiKey: ""
+    description: "Model served by LM Studio"
+    enabled: false
+
+  # Text Generation WebUI (oobabooga)
+  text_gen_webui:
+    title: "Text Generation WebUI"
+    provider: "openai"
+    model: "your-model"
+    apiBase: "http://localhost:5000/v1"
+    apiKey: ""
+    description: "Model served by Text Generation WebUI"
+    enabled: false
+
+  # Anthropic Claude (Cloud)
+  claude_sonnet:
+    title: "Claude 3.5 Sonnet"
+    provider: "anthropic"
+    model: "claude-3-5-sonnet-20241022"
+    apiBase: "https://api.anthropic.com"  # Default
+    apiKey: "${ANTHROPIC_API_KEY}"  # Read from environment
+    description: "Anthropic's most capable model"
+    enabled: false
+
+  claude_haiku:
+    title: "Claude 3.5 Haiku"
+    provider: "anthropic"
+    model: "claude-3-5-haiku-20241022"
+    apiBase: "https://api.anthropic.com"
+    apiKey: "${ANTHROPIC_API_KEY}"
+    description: "Fast and cost-effective"
+    enabled: false
+
+  # OpenAI (Cloud)
+  gpt4_turbo:
+    title: "GPT-4 Turbo"
+    provider: "openai"
+    model: "gpt-4-turbo"
+    apiBase: "https://api.openai.com/v1"  # Default
+    apiKey: "${OPENAI_API_KEY}"  # Read from environment
+    description: "OpenAI's most capable model"
+    enabled: false
+
+  gpt35_turbo:
+    title: "GPT-3.5 Turbo"
+    provider: "openai"
+    model: "gpt-3.5-turbo"
+    apiBase: "https://api.openai.com/v1"
+    apiKey: "${OPENAI_API_KEY}"
+    description: "Fast and economical"
+    enabled: false
+
+# Agent-specific model assignments (optional)
+# If not specified, uses default_model
+agent_models:
+  climate_001: "local_llama"      # ClimateDataAgent
+  emissions_001: "local_llama"    # EmissionsAgent
+  vulnerability_001: "local_mixtral"  # VulnerabilityAgent (use stronger model)
+  adaptation_001: "local_llama"   # AdaptationAgent
+
+# Model parameters (applied to all models unless overridden)
+default_parameters:
+  temperature: 0.3        # Lower for more factual responses
+  max_tokens: 4000        # Maximum response length
+  top_p: 0.9             # Nucleus sampling
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+
+# Performance settings
+performance:
+  timeout: 120  # Seconds to wait for model response
+  retry_attempts: 3
+  retry_delay: 2  # Seconds between retries
+
+# Logging
+logging:
+  log_requests: true     # Log all LLM requests
+  log_responses: false   # Don't log full responses (can be large)
+  log_tokens: true       # Log token usage
