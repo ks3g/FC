@@ -2,10 +2,100 @@
 
 {% block title %}Dashboard - Climate Research System{% endblock %}
 
+{% block extra_css %}
+<style>
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+.metric-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.metric-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+.metric-icon {
+    font-size: 24px;
+    margin-right: 10px;
+}
+.metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #2563eb;
+    margin-bottom: 5px;
+}
+.metric-label {
+    font-size: 14px;
+    color: #666;
+}
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin-top: 20px;
+}
+.agent-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+.agent-stats-table th,
+.agent-stats-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+.agent-stats-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+.agent-stats-table tr:hover {
+    background: #f9fafb;
+}
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-local {
+    background: #dcfce7;
+    color: #166534;
+}
+.badge-cloud {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.quality-bar {
+    width: 100%;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.quality-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);
+    transition: width 0.3s ease;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h1>Agent Dashboard</h1>
-    <p class="subtitle">Monitor and manage research agents</p>
+    <p class="subtitle">Monitor and manage research agents with comprehensive metrics</p>
 </div>
 
 <div class="stats-grid">
@@ -37,6 +127,135 @@
             <div class="stat-label">System Uptime</div>
         </div>
     </div>
+    <div class="stat-card">
+        <div class="stat-icon">🪙</div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-total-tokens">-</div>
+            <div class="stat-label">Total Tokens</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-total-cost">-</div>
+            <div class="stat-label">Total Cost (USD)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Metrics Overview -->
+<div class="metrics-grid">
+    <!-- Token Usage Chart -->
+    <div class="metric-card" style="grid-column: span 2;">
+        <div class="metric-header">
+            <span class="metric-icon">📈</span>
+            Token Usage (Last 7 Days)
+        </div>
+        <div class="chart-container">
+            <canvas id="tokenUsageChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon">⚡</span>
+            Performance Metrics
+        </div>
+        <div id="performance-metrics">
+            <div style="margin-bottom: 15px;">
+                <div class="metric-label">Avg Execution Time</div>
+                <div class="metric-value" style="font-size: 24px;" id="avg-exec-time">-</div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <div class="metric-label">Parallel Execution</div>
+                <div class="metric-value" style="font-size: 24px;" id="parallel-pct">-</div>
+            </div>
+            <div class="chart-container" style="height: 150px;">
+                <canvas id="execModeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Quality -->
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon">✨</span>
+            Data Quality
+        </div>
+        <div id="quality-metrics">
+            <div style="margin-bottom: 15px;">
+                <div class="metric-label">Average Confidence</div>
+                <div class="metric-value" style="font-size: 24px;" id="avg-confidence">-</div>
+                <div class="quality-bar">
+                    <div class="quality-fill" id="confidence-bar" style="width: 0%;"></div>
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <div class="metric-label">Total Sources</div>
+                <div class="metric-value" style="font-size: 24px;" id="total-sources">-</div>
+            </div>
+            <div class="chart-container" style="height: 150px;">
+                <canvas id="sourceTierChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cost Breakdown -->
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon">💵</span>
+            Cost Breakdown by Model
+        </div>
+        <div class="chart-container">
+            <canvas id="costByModelChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Token Usage by Agent -->
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon">🔧</span>
+            Token Usage by Agent
+        </div>
+        <div class="chart-container">
+            <canvas id="tokenByAgentChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Model Information -->
+<div class="section">
+    <div class="section-header">
+        <h2>Model Configuration</h2>
+    </div>
+    <div id="model-info-container" class="metrics-grid">
+        <div class="loading">Loading model information...</div>
+    </div>
+</div>
+
+<!-- Agent Statistics -->
+<div class="section">
+    <div class="section-header">
+        <h2>Agent Statistics</h2>
+    </div>
+    <div class="metric-card">
+        <table class="agent-stats-table" id="agent-stats-table">
+            <thead>
+                <tr>
+                    <th>Agent</th>
+                    <th>Executions</th>
+                    <th>Total Tokens</th>
+                    <th>Avg Tokens</th>
+                    <th>Total Cost</th>
+                    <th>Avg Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="6" class="loading">Loading agent statistics...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <div class="section">
@@ -53,7 +272,11 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+// Global chart instances
+let charts = {};
+
 // Load statistics
 async function loadStats() {
     try {
@@ -69,6 +292,362 @@ async function loadStats() {
     } catch (error) {
         console.error('Error loading stats:', error);
     }
+}
+
+// Load comprehensive metrics
+async function loadMetrics() {
+    try {
+        const response = await fetch('/api/metrics/dashboard');
+        const data = await response.json();
+
+        if (data.success) {
+            const metrics = data.metrics;
+
+            // Update token stats
+            updateTokenStats(metrics.tokens);
+
+            // Update performance metrics
+            updatePerformanceMetrics(metrics.performance);
+
+            // Update quality metrics
+            updateQualityMetrics(metrics.quality);
+
+            // Update agent statistics
+            updateAgentStats(metrics.agents);
+
+            // Update model information
+            updateModelInfo(metrics.models);
+
+            // Create/update charts
+            createCharts(metrics);
+        }
+    } catch (error) {
+        console.error('Error loading metrics:', error);
+    }
+}
+
+// Update token statistics
+function updateTokenStats(tokens) {
+    const totalTokens = tokens.total_tokens || 0;
+    const totalCost = tokens.total_cost || 0;
+
+    document.getElementById('stat-total-tokens').textContent =
+        totalTokens.toLocaleString();
+    document.getElementById('stat-total-cost').textContent =
+        '$' + totalCost.toFixed(2);
+}
+
+// Update performance metrics
+function updatePerformanceMetrics(performance) {
+    const avgTime = performance.avg_execution_time || 0;
+    const parallelPct = performance.parallel_percentage || 0;
+
+    document.getElementById('avg-exec-time').textContent =
+        avgTime.toFixed(1) + 's';
+    document.getElementById('parallel-pct').textContent =
+        parallelPct.toFixed(0) + '%';
+}
+
+// Update quality metrics
+function updateQualityMetrics(quality) {
+    const avgConfidence = quality.avg_confidence || 0;
+    const totalSources = quality.total_sources || 0;
+
+    document.getElementById('avg-confidence').textContent =
+        (avgConfidence * 100).toFixed(1) + '%';
+    document.getElementById('total-sources').textContent =
+        totalSources.toLocaleString();
+
+    // Update confidence bar
+    document.getElementById('confidence-bar').style.width =
+        (avgConfidence * 100) + '%';
+}
+
+// Update agent statistics table
+function updateAgentStats(agents) {
+    const tbody = document.querySelector('#agent-stats-table tbody');
+
+    if (Object.keys(agents).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No agent statistics available</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = Object.entries(agents).map(([agentId, stats]) => `
+        <tr>
+            <td><strong>${stats.name || agentId}</strong></td>
+            <td>${stats.executions || 0}</td>
+            <td>${(stats.total_tokens || 0).toLocaleString()}</td>
+            <td>${(stats.avg_tokens || 0).toLocaleString()}</td>
+            <td>$${(stats.total_cost || 0).toFixed(2)}</td>
+            <td>$${(stats.avg_cost || 0).toFixed(4)}</td>
+        </tr>
+    `).join('');
+}
+
+// Update model information
+function updateModelInfo(models) {
+    const container = document.getElementById('model-info-container');
+
+    if (Object.keys(models).length === 0) {
+        container.innerHTML = '<div class="empty-state">No model information available</div>';
+        return;
+    }
+
+    container.innerHTML = Object.entries(models).map(([agentId, info]) => `
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-icon">🤖</span>
+                ${agentId}
+            </div>
+            <div style="margin-top: 10px;">
+                <div style="margin-bottom: 8px;">
+                    <strong>Provider:</strong> ${info.provider || 'unknown'}
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <strong>Model:</strong> ${info.model || 'unknown'}
+                </div>
+                <div>
+                    <span class="badge ${info.is_local ? 'badge-local' : 'badge-cloud'}">
+                        ${info.is_local ? '🏠 Local' : '☁️ Cloud'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Create/update all charts
+function createCharts(metrics) {
+    createTokenUsageChart(metrics.tokens);
+    createExecModeChart(metrics.performance);
+    createSourceTierChart(metrics.quality);
+    createCostByModelChart(metrics.tokens);
+    createTokenByAgentChart(metrics.agents);
+}
+
+// Token usage over time chart
+function createTokenUsageChart(tokens) {
+    const ctx = document.getElementById('tokenUsageChart');
+    if (!ctx) return;
+
+    const recentUsage = tokens.recent_usage || [];
+    const labels = recentUsage.map(d => d.date);
+    const tokenData = recentUsage.map(d => d.tokens);
+    const costData = recentUsage.map(d => d.cost);
+
+    if (charts.tokenUsage) charts.tokenUsage.destroy();
+
+    charts.tokenUsage = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Tokens',
+                    data: tokenData,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'Cost ($)',
+                    data: costData,
+                    borderColor: 'rgb(16, 185, 129)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    yAxisID: 'y1',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Tokens'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Cost ($)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                },
+            }
+        }
+    });
+}
+
+// Execution mode chart
+function createExecModeChart(performance) {
+    const ctx = document.getElementById('execModeChart');
+    if (!ctx) return;
+
+    const parallel = performance.parallel_count || 0;
+    const sequential = performance.sequential_count || 0;
+
+    if (charts.execMode) charts.execMode.destroy();
+
+    charts.execMode = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Parallel', 'Sequential'],
+            datasets: [{
+                data: [parallel, sequential],
+                backgroundColor: [
+                    'rgb(16, 185, 129)',
+                    'rgb(59, 130, 246)',
+                ],
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                }
+            }
+        }
+    });
+}
+
+// Source tier chart
+function createSourceTierChart(quality) {
+    const ctx = document.getElementById('sourceTierChart');
+    if (!ctx) return;
+
+    const tierBreakdown = quality.tier_breakdown || {};
+    const labels = Object.keys(tierBreakdown).map(k => k.replace('tier_', 'Tier '));
+    const data = Object.values(tierBreakdown);
+
+    if (charts.sourceTier) charts.sourceTier.destroy();
+
+    charts.sourceTier = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Sources (%)',
+                data: data,
+                backgroundColor: 'rgb(59, 130, 246)',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Percentage'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+// Cost by model chart
+function createCostByModelChart(tokens) {
+    const ctx = document.getElementById('costByModelChart');
+    if (!ctx) return;
+
+    const byModel = tokens.by_model || {};
+    const labels = Object.keys(byModel);
+    const data = labels.map(model => byModel[model].total_cost || 0);
+
+    if (charts.costByModel) charts.costByModel.destroy();
+
+    const colors = [
+        'rgb(239, 68, 68)',
+        'rgb(59, 130, 246)',
+        'rgb(16, 185, 129)',
+        'rgb(245, 158, 11)',
+        'rgb(139, 92, 246)',
+    ];
+
+    charts.costByModel = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                }
+            }
+        }
+    });
+}
+
+// Token by agent chart
+function createTokenByAgentChart(agents) {
+    const ctx = document.getElementById('tokenByAgentChart');
+    if (!ctx) return;
+
+    const labels = Object.keys(agents).map(id => agents[id].name || id);
+    const data = Object.values(agents).map(a => a.total_tokens || 0);
+
+    if (charts.tokenByAgent) charts.tokenByAgent.destroy();
+
+    charts.tokenByAgent = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Tokens',
+                data: data,
+                backgroundColor: 'rgb(139, 92, 246)',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Tokens'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
 }
 
 // Load agents
@@ -193,11 +772,13 @@ function formatDateTime(isoString) {
 document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadAgents();
+    loadMetrics();
 
     // Auto-refresh every 30 seconds
     setInterval(() => {
         loadStats();
         loadAgents();
+        loadMetrics();
     }, 30000);
 });
 </script>

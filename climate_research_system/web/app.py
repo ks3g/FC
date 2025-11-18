@@ -26,12 +26,16 @@ from research.agents import (
     AdaptationAgent
 )
 from core.agent_base import AgentStatus
+from core.metrics_tracker import get_metrics_tracker
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'climate-research-secret-key'
 
 # Global orchestrator instance
 orchestrator = None
+
+# Global metrics tracker
+metrics_tracker = get_metrics_tracker()
 
 
 def init_orchestrator():
@@ -205,11 +209,28 @@ def start_research():
 
     # Start research
     try:
-        results = orchestrator.research_city(
-            city=city,
-            country=country,
-            **data.get('params', {})
-        )
+        # Check if parallel execution requested
+        use_parallel = data.get('parallel', False)
+
+        if use_parallel:
+            results = orchestrator.research_city_parallel(
+                city=city,
+                country=country,
+                **data.get('params', {})
+            )
+        else:
+            results = orchestrator.research_city(
+                city=city,
+                country=country,
+                **data.get('params', {})
+            )
+
+        # Track metrics
+        try:
+            metrics_tracker.track_research(results)
+        except Exception as e:
+            # Don't fail research if metrics tracking fails
+            print(f"Warning: Metrics tracking failed: {e}")
 
         return jsonify({
             'success': True,
@@ -313,6 +334,98 @@ def get_stats():
             'total_research': len(research_list),
             'system_uptime': str(datetime.now() - orchestrator.created_at)
         }
+    })
+
+
+# ============================================================================
+# API Endpoints - Metrics & Analytics
+# ============================================================================
+
+@app.route('/api/metrics/dashboard', methods=['GET'])
+def get_dashboard_metrics():
+    """Get comprehensive dashboard metrics."""
+    token_summary = metrics_tracker.get_token_summary()
+    performance = metrics_tracker.get_performance_summary()
+    quality = metrics_tracker.get_quality_summary()
+    agent_stats = metrics_tracker.get_agent_statistics()
+    system_health = metrics_tracker.get_system_health()
+
+    # Get current model info
+    model_info = {}
+    for agent_id, agent in orchestrator.agents.items():
+        llm_config = agent.config.get('llm', {})
+        model_info[agent_id] = {
+            'provider': llm_config.get('provider', 'unknown'),
+            'model': llm_config.get('model', 'unknown'),
+            'is_local': llm_config.get('provider') in ['ollama', 'mock']
+        }
+
+    return jsonify({
+        'success': True,
+        'metrics': {
+            'tokens': token_summary,
+            'performance': performance,
+            'quality': quality,
+            'agents': agent_stats,
+            'system': system_health,
+            'models': model_info
+        }
+    })
+
+
+@app.route('/api/metrics/tokens', methods=['GET'])
+def get_token_metrics():
+    """Get detailed token usage metrics."""
+    return jsonify({
+        'success': True,
+        'metrics': metrics_tracker.get_token_summary()
+    })
+
+
+@app.route('/api/metrics/performance', methods=['GET'])
+def get_performance_metrics():
+    """Get performance metrics."""
+    return jsonify({
+        'success': True,
+        'metrics': metrics_tracker.get_performance_summary()
+    })
+
+
+@app.route('/api/metrics/quality', methods=['GET'])
+def get_quality_metrics():
+    """Get data quality metrics."""
+    return jsonify({
+        'success': True,
+        'metrics': metrics_tracker.get_quality_summary()
+    })
+
+
+@app.route('/api/metrics/agents', methods=['GET'])
+def get_agent_metrics():
+    """Get per-agent statistics."""
+    agent_stats = metrics_tracker.get_agent_statistics()
+
+    # Enhance with current agent info
+    for agent_id, agent in orchestrator.agents.items():
+        if agent_id in agent_stats:
+            llm_config = agent.config.get('llm', {})
+            agent_stats[agent_id]['model'] = llm_config.get('model', 'unknown')
+            agent_stats[agent_id]['provider'] = llm_config.get('provider', 'unknown')
+            agent_stats[agent_id]['name'] = agent.name
+            agent_stats[agent_id]['enabled'] = agent.config.get('enabled', True)
+
+    return jsonify({
+        'success': True,
+        'agents': agent_stats
+    })
+
+
+@app.route('/api/metrics/system', methods=['GET'])
+def get_system_metrics():
+    """Get system health metrics."""
+    return jsonify({
+        'success': True,
+        'metrics': metrics_tracker.get_system_health()
     })
 
 
