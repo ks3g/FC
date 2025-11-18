@@ -4,9 +4,19 @@
 # Web Framework
 Flask==3.0.0
 
+# LLM Providers (install based on your choice)
+# Anthropic Claude (recommended)
+anthropic>=0.21.0
+
+# OpenAI GPT (alternative)
+# openai>=1.12.0
+
+# Ollama for local models (alternative)
+# ollama>=0.1.0
+
 # Optional: For production deployment
 # gunicorn==21.2.0
 
-# Optional: For API integrations (to be added)
+# Optional: For API integrations
 # requests==2.31.0
 # beautifulsoup4==4.12.2

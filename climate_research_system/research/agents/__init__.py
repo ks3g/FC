@@ -1,5 +1,13 @@
 """Research agents for data collection."""
 
-from .climate_data import ClimateDataAgent
+from .climate_data_llm import ClimateDataAgent
+from .emissions import EmissionsAgent
+from .vulnerability import VulnerabilityAgent
+from .adaptation import AdaptationAgent
 
-__all__ = ['ClimateDataAgent']
+__all__ = [
+    'ClimateDataAgent',
+    'EmissionsAgent',
+    'VulnerabilityAgent',
+    'AdaptationAgent'
+]

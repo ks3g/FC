@@ -19,7 +19,12 @@ import json
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from research.orchestrator import ResearchOrchestrator
-from research.agents.climate_data import ClimateDataAgent
+from research.agents import (
+    ClimateDataAgent,
+    EmissionsAgent,
+    VulnerabilityAgent,
+    AdaptationAgent
+)
 from core.agent_base import AgentStatus
 
 app = Flask(__name__)
@@ -30,19 +35,32 @@ orchestrator = None
 
 
 def init_orchestrator():
-    """Initialize the orchestrator with default agents."""
+    """Initialize the orchestrator with LLM-powered agents."""
     global orchestrator
     orchestrator = ResearchOrchestrator(storage_dir="climate_research_system/data")
 
-    # Register default agents
-    climate_agent = ClimateDataAgent(
-        agent_id="climate_001",
-        config={
-            'enabled': True,
-            'data_years': 30
-        }
-    )
-    orchestrator.register_agent(climate_agent)
+    # LLM configuration - will use MockLLMClient if no API key set
+    # Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable to use real LLM
+    llm_config = {
+        'llm': {
+            'provider': 'anthropic',  # or 'openai', 'ollama'
+            'model': 'claude-3-5-sonnet-20241022'
+            # API key read from environment variable
+        },
+        'enabled': True,
+        'data_years': 30
+    }
+
+    # Register all LLM-powered agents
+    agents = [
+        ClimateDataAgent(agent_id="climate_001", config=llm_config),
+        EmissionsAgent(agent_id="emissions_001", config=llm_config),
+        VulnerabilityAgent(agent_id="vulnerability_001", config=llm_config),
+        AdaptationAgent(agent_id="adaptation_001", config=llm_config)
+    ]
+
+    for agent in agents:
+        orchestrator.register_agent(agent)
 
     return orchestrator
 

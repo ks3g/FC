@@ -9,6 +9,7 @@ from datetime import datetime
 import logging
 
 from .message import Message, MessageType
+from .llm_client import LLMClient, MockLLMClient
 
 
 class AgentStatus(Enum):
@@ -52,6 +53,9 @@ class Agent(ABC):
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
 
+        # Initialize LLM client if configured
+        self.llm = self._initialize_llm()
+
     def _setup_logger(self) -> logging.Logger:
         """Setup agent logger."""
         logger = logging.getLogger(f"agent.{self.agent_id}")
@@ -64,6 +68,32 @@ class Agent(ABC):
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
         return logger
+
+    def _initialize_llm(self) -> Optional[LLMClient]:
+        """
+        Initialize LLM client based on configuration.
+
+        Returns:
+            LLMClient instance or MockLLMClient if no API key
+        """
+        llm_config = self.config.get('llm', {})
+
+        if not llm_config:
+            # Use mock client by default
+            self.logger.info("No LLM config found, using MockLLMClient")
+            return MockLLMClient()
+
+        provider = llm_config.get('provider', 'anthropic')
+        model = llm_config.get('model', 'claude-3-5-sonnet-20241022')
+        api_key = llm_config.get('api_key')
+
+        try:
+            client = LLMClient(provider, model, api_key)
+            self.logger.info(f"Initialized LLM: {provider}/{model}")
+            return client
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize LLM client: {e}. Using mock.")
+            return MockLLMClient()
 
     @abstractmethod
     def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
@@ -156,6 +186,13 @@ class Agent(ABC):
         Returns:
             State dictionary
         """
+        llm_info = {}
+        if self.llm:
+            llm_info = {
+                'provider': getattr(self.llm, 'provider', 'mock'),
+                'model': getattr(self.llm, 'model', 'mock-model')
+            }
+
         return {
             'agent_id': self.agent_id,
             'name': self.name,
@@ -163,6 +200,7 @@ class Agent(ABC):
             'results': self.results,
             'errors': self.errors,
             'config': self.config,
+            'llm': llm_info,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'message_count': len(self.messages)
