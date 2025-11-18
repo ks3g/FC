@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Research - Climate Research System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Start Climate Research</h1>
+    <p class="subtitle">Conduct comprehensive climate research on any city</p>
+</div>
+
+<div class="content-grid">
+    <div class="main-content">
+        <div class="card">
+            <h2>Research Configuration</h2>
+
+            <form id="research-form" onsubmit="startResearch(event)">
+                <div class="form-group">
+                    <label for="city">City</label>
+                    <input type="text" id="city" name="city" class="form-input"
+                           placeholder="e.g., Berlin" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="country">Country</label>
+                    <input type="text" id="country" name="country" class="form-input"
+                           placeholder="e.g., Germany" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="data-years">Climate Data Period (years)</label>
+                    <input type="number" id="data-years" name="data-years" class="form-input"
+                           value="30" min="1" max="100">
+                    <small>Number of years of historical climate data to collect</small>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="include-projections" name="include-projections" checked>
+                        Include climate projections
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-large" id="submit-btn">
+                    🔬 Start Research
+                </button>
+            </form>
+        </div>
+
+        <div id="results-card" class="card" style="display: none;">
+            <h2>Research Results</h2>
+            <div id="research-results"></div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="card">
+            <h3>Active Agents</h3>
+            <div id="active-agents-list">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Research</h3>
+            <div id="recent-research-list">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load active agents
+async function loadActiveAgents() {
+    try {
+        const response = await fetch('/api/agents');
+        const data = await response.json();
+
+        if (data.success) {
+            const container = document.getElementById('active-agents-list');
+            const enabledAgents = data.agents.filter(a => a.enabled);
+
+            if (enabledAgents.length === 0) {
+                container.innerHTML = '<div class="empty-state">No agents enabled</div>';
+                return;
+            }
+
+            container.innerHTML = enabledAgents.map(agent => `
+                <div class="agent-item">
+                    <div class="agent-item-icon">✓</div>
+                    <div class="agent-item-content">
+                        <div class="agent-item-name">${agent.name}</div>
+                        <div class="agent-item-status status-${agent.status}">${agent.status}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading agents:', error);
+    }
+}
+
+// Load recent research
+async function loadRecentResearch() {
+    try {
+        const response = await fetch('/api/research/list');
+        const data = await response.json();
+
+        if (data.success) {
+            const container = document.getElementById('recent-research-list');
+            const recent = data.research.slice(0, 5);
+
+            if (recent.length === 0) {
+                container.innerHTML = '<div class="empty-state">No research yet</div>';
+                return;
+            }
+
+            container.innerHTML = recent.map(research => `
+                <div class="research-item" onclick="viewResearch('${research.id}')">
+                    <div class="research-item-title">${research.city}, ${research.country}</div>
+                    <div class="research-item-meta">
+                        <span>${research.agents_used} agents</span>
+                        <span>${Math.round(research.data_completeness * 100)}% complete</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading recent research:', error);
+    }
+}
+
+// Start research
+async function startResearch(event) {
+    event.preventDefault();
+
+    const submitBtn = document.getElementById('submit-btn');
+    const city = document.getElementById('city').value;
+    const country = document.getElementById('country').value;
+    const dataYears = document.getElementById('data-years').value;
+    const includeProjections = document.getElementById('include-projections').checked;
+
+    // Disable button
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Researching...';
+
+    try {
+        const response = await fetch('/api/research/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                city,
+                country,
+                params: {
+                    years: parseInt(dataYears),
+                    include_projections: includeProjections
+                }
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification(`Research completed for ${city}, ${country}`, 'success');
+            displayResults(data.results);
+            loadRecentResearch();
+        } else {
+            showNotification(`Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error starting research:', error);
+        showNotification('Error starting research', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '🔬 Start Research';
+    }
+}
+
+// Display results
+function displayResults(results) {
+    const card = document.getElementById('results-card');
+    const container = document.getElementById('research-results');
+
+    card.style.display = 'block';
+
+    const validation = results.validation_report;
+    const summary = results.summary;
+
+    container.innerHTML = `
+        <div class="results-summary">
+            <h3>📊 ${results.city}, ${results.country}</h3>
+            <p><strong>Research ID:</strong> ${results.research_id}</p>
+            <p><strong>Completed:</strong> ${formatDateTime(results.completed_at)}</p>
+        </div>
+
+        <div class="results-section">
+            <h4>Summary</h4>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${summary.data_completeness * 100}%">
+                    ${Math.round(summary.data_completeness * 100)}% Complete
+                </div>
+            </div>
+            <p><strong>Agents Used:</strong> ${results.metadata.successful_agents} / ${results.metadata.total_agents}</p>
+        </div>
+
+        <div class="results-section">
+            <h4>Validation Report</h4>
+            <p><strong>Status:</strong>
+                <span class="status-badge ${validation.overall_valid ? 'status-completed' : 'status-error'}">
+                    ${validation.overall_valid ? '✓ Valid' : '✗ Issues Found'}
+                </span>
+            </p>
+
+            ${validation.recommendations.length > 0 ? `
+                <div class="recommendations">
+                    <strong>Recommendations:</strong>
+                    <ul>
+                        ${validation.recommendations.map(r => `<li>${r}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="results-actions">
+            <button class="btn btn-primary" onclick="viewResearch('${results.research_id}')">
+                📄 View Full Results
+            </button>
+            <button class="btn btn-secondary" onclick="downloadResearch('${results.research_id}')">
+                💾 Download JSON
+            </button>
+        </div>
+    `;
+
+    card.scrollIntoView({ behavior: 'smooth' });
+}
+
+// View research details
+function viewResearch(researchId) {
+    window.location.href = `/results?id=${researchId}`;
+}
+
+// Download research
+async function downloadResearch(researchId) {
+    window.location.href = `/api/research/${researchId}/download`;
+}
+
+// Format date/time
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadActiveAgents();
+    loadRecentResearch();
+});
+</script>
+{% endblock %}

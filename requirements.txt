@@ -1,0 +1,12 @@
+# Climate Research Agent Orchestration System
+# Python dependencies
+
+# Web Framework
+Flask==3.0.0
+
+# Optional: For production deployment
+# gunicorn==21.2.0
+
+# Optional: For API integrations (to be added)
+# requests==2.31.0
+# beautifulsoup4==4.12.2

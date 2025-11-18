@@ -23,6 +23,10 @@ climate_research_system/
 │   ├── agents/            # Research agents
 │   │   └── climate_data.py
 │   └── validators/        # Validation agents (TODO)
+├── web/                   # Web Dashboard (NEW!)
+│   ├── app.py            # Flask application
+│   ├── templates/        # HTML templates
+│   └── static/          # CSS, JavaScript
 ├── data_collection/       # Local Data Collection Module (TODO)
 ├── presentation/          # Presentation Module (TODO)
 ├── utils/                 # Utilities
@@ -40,6 +44,24 @@ climate_research_system/
 - **State Management**: Persistent storage of research results and agent states
 - **Status Tracking**: Real-time agent status monitoring
 - **Error Handling**: Comprehensive error tracking and reporting
+
+### Web Dashboard (NEW!)
+
+Flask-based web interface for managing agents and viewing results:
+
+#### Pages:
+- **Dashboard (/)** - Agent overview, system stats, enable/disable agents
+- **Research (/research)** - Start new research with interactive forms
+- **Results (/results)** - Browse, view, and download research results
+
+#### API Endpoints:
+- `GET /api/agents` - List all agents
+- `POST /api/agents/<id>/toggle` - Enable/disable agent
+- `POST /api/research/start` - Start research
+- `GET /api/research/list` - List research
+- `GET /api/research/<id>/download` - Download results
+
+See [web/README.md](web/README.md) for full API documentation.
 
 ### Research Module
 
@@ -80,7 +102,25 @@ Coordinates multiple research agents:
 
 ## Quick Start
 
-### Run the Example
+### Option 1: Web Dashboard (Recommended)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start web server
+python climate_research_system/web/app.py
+
+# Open browser to http://localhost:5000
+```
+
+The web dashboard provides:
+- **Visual agent management** - See all agents, enable/disable them
+- **Interactive research** - Start research with forms
+- **Results browser** - View and download research results
+- **Real-time monitoring** - Agent status and system statistics
+
+### Option 2: Command Line
 
 ```bash
 cd climate_research_system
@@ -169,6 +209,11 @@ Multi-layer validation approach:
 - ClimateDataAgent (structure)
 - Research Orchestrator
 - Example script
+- **Web Dashboard** - Full-featured web interface
+  - Agent management UI
+  - Research form
+  - Results browser
+  - REST API
 
 🚧 **In Progress:**
 - Real API integrations

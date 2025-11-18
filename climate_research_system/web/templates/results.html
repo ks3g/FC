@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Results - Climate Research System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Research Results</h1>
+    <p class="subtitle">Browse and analyze completed climate research</p>
+</div>
+
+<div class="section">
+    <div class="section-header">
+        <h2>Completed Research</h2>
+        <button class="btn btn-secondary" onclick="loadResearchList()">🔄 Refresh</button>
+    </div>
+
+    <div id="research-list" class="research-table">
+        <div class="loading">Loading research...</div>
+    </div>
+</div>
+
+<div id="detail-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Research Details</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <!-- Content loaded dynamically -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load research list
+async function loadResearchList() {
+    try {
+        const response = await fetch('/api/research/list');
+        const data = await response.json();
+
+        if (data.success) {
+            displayResearchList(data.research);
+        }
+    } catch (error) {
+        console.error('Error loading research list:', error);
+        document.getElementById('research-list').innerHTML =
+            '<div class="error">Error loading research</div>';
+    }
+}
+
+// Display research list
+function displayResearchList(researchList) {
+    const container = document.getElementById('research-list');
+
+    if (researchList.length === 0) {
+        container.innerHTML = '<div class="empty-state">No research completed yet</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>City</th>
+                    <th>Country</th>
+                    <th>Completed</th>
+                    <th>Agents</th>
+                    <th>Completeness</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${researchList.map(research => `
+                    <tr>
+                        <td><strong>${research.city}</strong></td>
+                        <td>${research.country}</td>
+                        <td>${formatDateTime(research.completed_at)}</td>
+                        <td>${research.agents_used}</td>
+                        <td>
+                            <div class="progress-bar-small">
+                                <div class="progress-fill" style="width: ${research.data_completeness * 100}%"></div>
+                            </div>
+                            <span class="progress-text">${Math.round(research.data_completeness * 100)}%</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-small btn-primary" onclick="viewDetails('${research.id}')">
+                                View
+                            </button>
+                            <button class="btn btn-small btn-secondary" onclick="downloadResearch('${research.id}')">
+                                Download
+                            </button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// View research details
+async function viewDetails(researchId) {
+    try {
+        const response = await fetch(`/api/research/${researchId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            showDetailsModal(data.results);
+        }
+    } catch (error) {
+        console.error('Error loading research details:', error);
+        showNotification('Error loading details', 'error');
+    }
+}
+
+// Show details modal
+function showDetailsModal(results) {
+    const modal = document.getElementById('detail-modal');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+
+    title.textContent = `${results.city}, ${results.country}`;
+
+    const validation = results.validation_report;
+    const summary = results.summary;
+
+    body.innerHTML = `
+        <div class="detail-section">
+            <h3>📍 Location</h3>
+            <p><strong>City:</strong> ${results.city}</p>
+            <p><strong>Country:</strong> ${results.country}</p>
+            <p><strong>Research ID:</strong> ${results.research_id}</p>
+            <p><strong>Completed:</strong> ${formatDateTime(results.completed_at)}</p>
+        </div>
+
+        <div class="detail-section">
+            <h3>📊 Summary</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${summary.data_completeness * 100}%">
+                    ${Math.round(summary.data_completeness * 100)}% Complete
+                </div>
+            </div>
+            <p><strong>Successful Agents:</strong> ${results.metadata.successful_agents} / ${results.metadata.total_agents}</p>
+            ${summary.errors.length > 0 ? `
+                <div class="alert alert-error">
+                    <strong>Errors:</strong>
+                    <ul>
+                        ${summary.errors.map(e => `<li>${e}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="detail-section">
+            <h3>✓ Validation</h3>
+            <p><strong>Status:</strong>
+                <span class="status-badge ${validation.overall_valid ? 'status-completed' : 'status-error'}">
+                    ${validation.overall_valid ? '✓ Valid' : '✗ Issues Found'}
+                </span>
+            </p>
+            <p><strong>Validated:</strong> ${formatDateTime(validation.validated_at)}</p>
+
+            ${validation.recommendations.length > 0 ? `
+                <div class="recommendations">
+                    <strong>Recommendations:</strong>
+                    <ul>
+                        ${validation.recommendations.map(r => `<li>${r}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+
+            ${validation.missing_data.length > 0 ? `
+                <div class="alert alert-warning">
+                    <strong>Missing Data:</strong>
+                    <ul>
+                        ${validation.missing_data.map(m => `<li>${m}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="detail-section">
+            <h3>🤖 Agent Results</h3>
+            ${Object.entries(results.agent_results).map(([agentId, agentData]) => `
+                <div class="agent-result">
+                    <h4>${agentId}</h4>
+                    ${agentData.error ? `
+                        <div class="alert alert-error">Error: ${agentData.error}</div>
+                    ` : `
+                        <p><strong>Data Period:</strong> ${agentData.data_period || 'N/A'}</p>
+                        <p><strong>Sources:</strong> ${agentData.sources ? agentData.sources.length : 0}</p>
+                        ${agentData.notes && agentData.notes.length > 0 ? `
+                            <div class="notes">
+                                <strong>Notes:</strong>
+                                <ul>
+                                    ${agentData.notes.map(n => `<li>${n}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    `}
+                </div>
+            `).join('')}
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-primary" onclick="downloadResearch('${results.research_id}')">
+                💾 Download JSON
+            </button>
+            <button class="btn btn-secondary" onclick="closeModal()">
+                Close
+            </button>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+// Close modal
+function closeModal() {
+    document.getElementById('detail-modal').style.display = 'none';
+}
+
+// Download research
+function downloadResearch(researchId) {
+    window.location.href = `/api/research/${researchId}/download`;
+}
+
+// Format date/time
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    const modal = document.getElementById('detail-modal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadResearchList();
+
+    // Check if specific research ID in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const researchId = urlParams.get('id');
+    if (researchId) {
+        viewDetails(researchId);
+    }
+});
+</script>
+{% endblock %}

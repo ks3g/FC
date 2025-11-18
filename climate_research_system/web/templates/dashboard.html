@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Climate Research System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Agent Dashboard</h1>
+    <p class="subtitle">Monitor and manage research agents</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">🤖</div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-total-agents">-</div>
+            <div class="stat-label">Total Agents</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-enabled-agents">-</div>
+            <div class="stat-label">Enabled</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-research-count">-</div>
+            <div class="stat-label">Completed Research</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-uptime">-</div>
+            <div class="stat-label">System Uptime</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-header">
+        <h2>Research Agents</h2>
+        <button class="btn btn-secondary" onclick="refreshAgents()">🔄 Refresh</button>
+    </div>
+
+    <div id="agents-container" class="agents-grid">
+        <div class="loading">Loading agents...</div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load statistics
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('stat-total-agents').textContent = data.stats.total_agents;
+            document.getElementById('stat-enabled-agents').textContent = data.stats.enabled_agents;
+            document.getElementById('stat-research-count').textContent = data.stats.total_research;
+            document.getElementById('stat-uptime').textContent = data.stats.system_uptime.split('.')[0];
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// Load agents
+async function loadAgents() {
+    try {
+        const response = await fetch('/api/agents');
+        const data = await response.json();
+
+        if (data.success) {
+            displayAgents(data.agents);
+        }
+    } catch (error) {
+        console.error('Error loading agents:', error);
+        document.getElementById('agents-container').innerHTML =
+            '<div class="error">Error loading agents</div>';
+    }
+}
+
+// Display agents
+function displayAgents(agents) {
+    const container = document.getElementById('agents-container');
+
+    if (agents.length === 0) {
+        container.innerHTML = '<div class="empty-state">No agents registered</div>';
+        return;
+    }
+
+    container.innerHTML = agents.map(agent => `
+        <div class="agent-card ${agent.enabled ? '' : 'disabled'}">
+            <div class="agent-header">
+                <h3>${agent.name}</h3>
+                <span class="status-badge status-${agent.status}">${agent.status}</span>
+            </div>
+            <div class="agent-body">
+                <div class="agent-info">
+                    <div class="info-row">
+                        <span class="info-label">ID:</span>
+                        <span class="info-value">${agent.id}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Messages:</span>
+                        <span class="info-value">${agent.message_count}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Errors:</span>
+                        <span class="info-value ${agent.error_count > 0 ? 'text-error' : ''}">${agent.error_count}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Updated:</span>
+                        <span class="info-value">${formatDateTime(agent.updated_at)}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="agent-footer">
+                <button class="btn ${agent.enabled ? 'btn-warning' : 'btn-success'}"
+                        onclick="toggleAgent('${agent.id}', ${agent.enabled})">
+                    ${agent.enabled ? '⏸️ Disable' : '▶️ Enable'}
+                </button>
+                <button class="btn btn-secondary" onclick="resetAgent('${agent.id}')">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Toggle agent
+async function toggleAgent(agentId, currentlyEnabled) {
+    try {
+        const response = await fetch(`/api/agents/${agentId}/toggle`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification(
+                `Agent ${currentlyEnabled ? 'disabled' : 'enabled'} successfully`,
+                'success'
+            );
+            loadAgents();
+            loadStats();
+        }
+    } catch (error) {
+        console.error('Error toggling agent:', error);
+        showNotification('Error toggling agent', 'error');
+    }
+}
+
+// Reset agent
+async function resetAgent(agentId) {
+    if (!confirm('Are you sure you want to reset this agent?')) return;
+
+    try {
+        const response = await fetch(`/api/agents/${agentId}/reset`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification('Agent reset successfully', 'success');
+            loadAgents();
+        }
+    } catch (error) {
+        console.error('Error resetting agent:', error);
+        showNotification('Error resetting agent', 'error');
+    }
+}
+
+// Refresh agents
+function refreshAgents() {
+    loadAgents();
+    loadStats();
+}
+
+// Format date/time
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadStats();
+    loadAgents();
+
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+        loadStats();
+        loadAgents();
+    }, 30000);
+});
+</script>
+{% endblock %}
