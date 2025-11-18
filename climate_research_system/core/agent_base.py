@@ -86,9 +86,19 @@ class Agent(ABC):
         provider = llm_config.get('provider', 'anthropic')
         model = llm_config.get('model', 'claude-3-5-sonnet-20241022')
         api_key = llm_config.get('api_key')
+        api_base = llm_config.get('api_base')
+        api_type = llm_config.get('api_type')
+        api_version = llm_config.get('api_version')
 
         try:
-            client = LLMClient(provider, model, api_key)
+            client = LLMClient(
+                provider=provider,
+                model=model,
+                api_key=api_key,
+                api_base=api_base,
+                api_type=api_type,
+                api_version=api_version
+            )
             self.logger.info(f"Initialized LLM: {provider}/{model}")
             return client
         except Exception as e:

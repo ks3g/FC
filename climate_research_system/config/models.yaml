@@ -93,6 +93,8 @@ models:
     model: "gpt-4-turbo"
     apiBase: "https://api.openai.com/v1"  # Default
     apiKey: "${OPENAI_API_KEY}"  # Read from environment
+    apiType: "openai"  # openai, azure, azure_ad, or custom
+    apiVersion: ""  # Optional, for Azure: "2024-02-15-preview"
     description: "OpenAI's most capable model"
     enabled: false
 
@@ -102,7 +104,44 @@ models:
     model: "gpt-3.5-turbo"
     apiBase: "https://api.openai.com/v1"
     apiKey: "${OPENAI_API_KEY}"
+    apiType: "openai"
+    apiVersion: ""
     description: "Fast and economical"
+    enabled: false
+
+  # Azure OpenAI (Microsoft Azure)
+  azure_gpt4:
+    title: "Azure OpenAI GPT-4"
+    provider: "openai"  # Use OpenAI provider with Azure config
+    model: "gpt-4"  # Your deployment name in Azure
+    apiBase: "https://your-resource.openai.azure.com"  # Your Azure endpoint
+    apiKey: "${AZURE_OPENAI_KEY}"  # Your Azure API key
+    apiType: "azure"  # Required for Azure
+    apiVersion: "2024-02-15-preview"  # Required for Azure
+    description: "GPT-4 via Azure OpenAI Service"
+    enabled: false
+
+  azure_gpt35:
+    title: "Azure OpenAI GPT-3.5"
+    provider: "openai"
+    model: "gpt-35-turbo"  # Your deployment name
+    apiBase: "https://your-resource.openai.azure.com"
+    apiKey: "${AZURE_OPENAI_KEY}"
+    apiType: "azure"
+    apiVersion: "2024-02-15-preview"
+    description: "GPT-3.5 via Azure OpenAI Service"
+    enabled: false
+
+  # Azure OpenAI with AD Authentication
+  azure_gpt4_ad:
+    title: "Azure OpenAI GPT-4 (AD Auth)"
+    provider: "openai"
+    model: "gpt-4"
+    apiBase: "https://your-resource.openai.azure.com"
+    apiKey: "${AZURE_AD_TOKEN}"  # Azure AD token
+    apiType: "azure_ad"  # Use Azure AD authentication
+    apiVersion: "2024-02-15-preview"
+    description: "GPT-4 via Azure with AD authentication"
     enabled: false
 
 # Agent-specific model assignments (optional)

@@ -190,6 +190,8 @@ class ConfigLoader:
                 'model': model_config.get('model', 'mock-model'),
                 'api_key': model_config.get('apiKey', ''),
                 'api_base': model_config.get('apiBase', ''),
+                'api_type': model_config.get('apiType', 'openai'),
+                'api_version': model_config.get('apiVersion', ''),
                 'title': model_config.get('title', ''),
                 'parameters': model_config.get('parameters', {})
             },
@@ -268,6 +270,8 @@ def load_agent_config(agent_id: str) -> Dict[str, Any]:
             'model': model_config.get('model', 'mock-model'),
             'api_key': model_config.get('apiKey', ''),
             'api_base': model_config.get('apiBase', ''),
+            'api_type': model_config.get('apiType', 'openai'),
+            'api_version': model_config.get('apiVersion', ''),
             'title': model_config.get('title', ''),
             'parameters': model_config.get('parameters', {})
         },

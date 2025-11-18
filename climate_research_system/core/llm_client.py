@@ -32,7 +32,9 @@ class LLMClient:
         provider: str,
         model: str,
         api_key: Optional[str] = None,
-        api_base: Optional[str] = None
+        api_base: Optional[str] = None,
+        api_type: Optional[str] = None,
+        api_version: Optional[str] = None
     ):
         """
         Initialize LLM client.
@@ -42,11 +44,15 @@ class LLMClient:
             model: Model name (e.g., claude-3-5-sonnet, gpt-4)
             api_key: API key (not needed for local models)
             api_base: Custom API base URL (for local models or custom endpoints)
+            api_type: API type for Azure OpenAI (openai, azure, azure_ad)
+            api_version: API version for Azure OpenAI (e.g., 2024-02-15-preview)
         """
         self.provider = LLMProvider(provider)
         self.model = model
         self.api_key = api_key or os.getenv(f"{provider.upper()}_API_KEY")
         self.api_base = api_base  # Custom endpoint support
+        self.api_type = api_type or "openai"  # Default to standard OpenAI
+        self.api_version = api_version  # Required for Azure
 
         # Initialize provider client
         self.client = self._initialize_client()
@@ -67,10 +73,28 @@ class LLMClient:
         elif self.provider == LLMProvider.OPENAI:
             try:
                 import openai
-                client_kwargs = {'api_key': self.api_key}
-                if self.api_base:
-                    client_kwargs['base_url'] = self.api_base
-                return openai.OpenAI(**client_kwargs)
+
+                # Handle Azure OpenAI separately
+                if self.api_type in ['azure', 'azure_ad']:
+                    client_kwargs = {'api_key': self.api_key}
+
+                    # Azure requires azure_endpoint instead of base_url
+                    if self.api_base:
+                        client_kwargs['azure_endpoint'] = self.api_base
+
+                    # Azure requires api_version
+                    if self.api_version:
+                        client_kwargs['api_version'] = self.api_version
+
+                    return openai.AzureOpenAI(**client_kwargs)
+
+                # Standard OpenAI or OpenAI-compatible APIs
+                else:
+                    client_kwargs = {'api_key': self.api_key}
+                    if self.api_base:
+                        client_kwargs['base_url'] = self.api_base
+                    return openai.OpenAI(**client_kwargs)
+
             except ImportError:
                 print("Warning: openai package not installed. Run: pip install openai")
                 return None

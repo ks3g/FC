@@ -21,6 +21,8 @@ model_name:
   model: "model-identifier"
   apiBase: "http://your-endpoint-url"  # Optional, for custom endpoints
   apiKey: "your-api-key"               # Or "${ENV_VAR}" to read from environment
+  apiType: "openai|azure|azure_ad"     # Optional, for Azure OpenAI
+  apiVersion: "2024-02-15-preview"     # Optional, for Azure OpenAI
   description: "Model description"
   enabled: true|false
 ```
@@ -33,6 +35,12 @@ model_name:
 - **apiBase**: API endpoint URL (important for local models!)
 - **apiKey**: Authentication key (can be empty for local models)
 - **enabled**: Whether this model is active
+
+### Optional Azure Fields
+
+For Azure OpenAI, additional fields are required:
+- **apiType**: Set to `"azure"` or `"azure_ad"` (defaults to `"openai"`)
+- **apiVersion**: Azure API version like `"2024-02-15-preview"` (required for Azure)
 
 ## Provider-Specific Configuration
 
@@ -152,12 +160,57 @@ gpt4_turbo:
   model: "gpt-4-turbo"
   apiBase: "https://api.openai.com/v1"
   apiKey: "${OPENAI_API_KEY}"
+  apiType: "openai"  # Optional: openai (default), azure, azure_ad
   enabled: true
 ```
 
 **Setup:**
 ```bash
 export OPENAI_API_KEY='your-key'
+```
+
+### Azure OpenAI (Microsoft Azure)
+
+Azure OpenAI requires additional configuration fields compared to standard OpenAI:
+
+```yaml
+azure_gpt4:
+  title: "Azure OpenAI GPT-4"
+  provider: "openai"  # Use openai provider with Azure config
+  model: "gpt-4"  # Your deployment name in Azure
+  apiBase: "https://your-resource.openai.azure.com"  # Your Azure endpoint
+  apiKey: "${AZURE_OPENAI_KEY}"  # Your Azure API key
+  apiType: "azure"  # Required: "azure" for API key auth
+  apiVersion: "2024-02-15-preview"  # Required: Azure API version
+  enabled: true
+```
+
+**Azure-specific fields:**
+- `apiType`: Set to `"azure"` for standard Azure auth, or `"azure_ad"` for Active Directory auth
+- `apiVersion`: Azure API version (required). Examples: `"2024-02-15-preview"`, `"2023-12-01-preview"`
+- `model`: Your Azure deployment name (not the base model name)
+- `apiBase`: Your Azure OpenAI resource endpoint
+
+**Setup:**
+```bash
+# Standard Azure OpenAI with API key
+export AZURE_OPENAI_KEY='your-azure-key'
+
+# Or for Azure AD authentication
+export AZURE_AD_TOKEN='your-ad-token'
+```
+
+**Azure AD Authentication:**
+```yaml
+azure_gpt4_ad:
+  title: "Azure OpenAI GPT-4 (AD Auth)"
+  provider: "openai"
+  model: "gpt-4"
+  apiBase: "https://your-resource.openai.azure.com"
+  apiKey: "${AZURE_AD_TOKEN}"
+  apiType: "azure_ad"  # Use Azure AD authentication
+  apiVersion: "2024-02-15-preview"
+  enabled: true
 ```
 
 ## Agent-Specific Model Assignment
