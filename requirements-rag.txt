@@ -1,0 +1,17 @@
+# RAG System Dependencies
+# Install with: pip install -r requirements-rag.txt
+
+# Vector database for document storage
+chromadb>=0.4.0
+
+# Multilingual embeddings
+sentence-transformers>=2.2.0
+
+# PDF parsing with advanced features
+docling>=1.0.0
+
+# Additional dependencies that may be needed
+# (docling will install most of these automatically)
+# pypdf>=3.0.0
+# pdfplumber>=0.10.0
+# pillow>=10.0.0
