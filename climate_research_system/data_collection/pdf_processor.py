@@ -18,6 +18,9 @@ try:
     DOCLING_AVAILABLE = True
 except ImportError:
     DOCLING_AVAILABLE = False
+    DocumentConverter = None  # Type placeholder
+    InputFormat = None
+    PdfPipelineOptions = None
     print("Warning: docling not installed. Run: pip install docling")
 
 
@@ -88,7 +91,7 @@ class PDFProcessor:
         # Initialize Docling converter
         self.converter = self._initialize_converter()
 
-    def _initialize_converter(self) -> DocumentConverter:
+    def _initialize_converter(self):
         """Initialize Docling document converter."""
         try:
             # Configure pipeline options

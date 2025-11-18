@@ -17,6 +17,8 @@ try:
     CHROMADB_AVAILABLE = True
 except ImportError:
     CHROMADB_AVAILABLE = False
+    chromadb = None
+    Settings = None
     print("Warning: chromadb not installed. Run: pip install chromadb")
 
 try:
@@ -24,6 +26,7 @@ try:
     EMBEDDINGS_AVAILABLE = True
 except ImportError:
     EMBEDDINGS_AVAILABLE = False
+    SentenceTransformer = None
     print("Warning: sentence-transformers not installed. Run: pip install sentence-transformers")
 
 

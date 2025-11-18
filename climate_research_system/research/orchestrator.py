@@ -104,13 +104,16 @@ class ResearchOrchestrator:
             **kwargs
         }
 
-        # Separate validation agent from data collection agents
+        # Separate agents by type: data collection, validation, presentation
         validation_agent = None
+        presentation_agent = None
         data_agents = {}
 
         for agent_id, agent in self.agents.items():
             if 'validation' in agent_id.lower() or agent.name == "ValidationAgent":
                 validation_agent = agent
+            elif 'presentation' in agent_id.lower() or agent.name == "Presentation Agent":
+                presentation_agent = agent
             else:
                 data_agents[agent_id] = agent
 
@@ -174,9 +177,41 @@ class ResearchOrchestrator:
             self.logger.info("No ValidationAgent registered, using basic validation")
             validation_report = self._cross_validate_results({'agent_results': agent_results})
 
+        # Execute presentation agent AFTER validation (final step)
+        presentation = {}
+        if presentation_agent:
+            self.logger.info(f"Generating presentation: {presentation_agent.name}")
+            try:
+                presentation_task = {
+                    'city': city,
+                    'country': country,
+                    'agent_results': agent_results,
+                    'validation_report': validation_report,
+                    **kwargs
+                }
+                message = Message(
+                    type=MessageType.REQUEST,
+                    sender="orchestrator",
+                    recipient=presentation_agent.agent_id,
+                    payload=presentation_task
+                )
+                response = presentation_agent.handle_message(message)
+
+                if response and response.type == MessageType.RESPONSE:
+                    presentation = response.payload
+                    self.logger.info(f"✓ Presentation generated")
+                else:
+                    self.logger.warning("Presentation agent produced no response")
+
+            except Exception as e:
+                self.logger.error(f"✗ Presentation error: {str(e)}")
+        else:
+            self.logger.info("No Presentation Agent registered, skipping presentation generation")
+
         # Aggregate results
         results = self._aggregate_results(city, country, research_id, agent_results)
         results['validation_report'] = validation_report
+        results['presentation'] = presentation
 
         # Add source tracking from validation
         if 'sources' in validation_report:
@@ -189,6 +224,8 @@ class ResearchOrchestrator:
         # Save results
         self.state_manager.save_research_results(research_id, results)
         self.state_manager.save_validation_report(research_id, validation_report)
+        if presentation:
+            self.state_manager.save_state(f"presentation_{research_id}", presentation)
 
         # Update history
         self.research_history.append({
@@ -197,7 +234,8 @@ class ResearchOrchestrator:
             'country': country,
             'completed_at': datetime.now().isoformat(),
             'agents_used': list(self.agents.keys()),
-            'status': 'completed'
+            'status': 'completed',
+            'has_presentation': bool(presentation)
         })
 
         self.logger.info(f"Research completed for {city}, {country}")
@@ -236,13 +274,16 @@ class ResearchOrchestrator:
             **kwargs
         }
 
-        # Separate validation agent from data collection agents
+        # Separate agents by type: data collection, validation, presentation
         validation_agent = None
+        presentation_agent = None
         data_agents = {}
 
         for agent_id, agent in self.agents.items():
             if 'validation' in agent_id.lower() or agent.name == "ValidationAgent":
                 validation_agent = agent
+            elif 'presentation' in agent_id.lower() or agent.name == "Presentation Agent":
+                presentation_agent = agent
             else:
                 data_agents[agent_id] = agent
 
@@ -291,9 +332,41 @@ class ResearchOrchestrator:
             self.logger.info("No ValidationAgent registered, using basic validation")
             validation_report = self._cross_validate_results({'agent_results': agent_results})
 
+        # Execute presentation agent AFTER validation (final step)
+        presentation = {}
+        if presentation_agent:
+            self.logger.info(f"Generating presentation: {presentation_agent.name}")
+            try:
+                presentation_task = {
+                    'city': city,
+                    'country': country,
+                    'agent_results': agent_results,
+                    'validation_report': validation_report,
+                    **kwargs
+                }
+                message = Message(
+                    type=MessageType.REQUEST,
+                    sender="orchestrator",
+                    recipient=presentation_agent.agent_id,
+                    payload=presentation_task
+                )
+                response = presentation_agent.handle_message(message)
+
+                if response and response.type == MessageType.RESPONSE:
+                    presentation = response.payload
+                    self.logger.info(f"✓ Presentation generated")
+                else:
+                    self.logger.warning("Presentation agent produced no response")
+
+            except Exception as e:
+                self.logger.error(f"✗ Presentation error: {str(e)}")
+        else:
+            self.logger.info("No Presentation Agent registered, skipping presentation generation")
+
         # Aggregate results
         results = self._aggregate_results(city, country, research_id, agent_results)
         results['validation_report'] = validation_report
+        results['presentation'] = presentation
 
         # Add execution time metadata
         results['metadata']['execution_time_seconds'] = round(execution_time, 2)
@@ -310,6 +383,8 @@ class ResearchOrchestrator:
         # Save results
         self.state_manager.save_research_results(research_id, results)
         self.state_manager.save_validation_report(research_id, validation_report)
+        if presentation:
+            self.state_manager.save_state(f"presentation_{research_id}", presentation)
 
         # Update history
         self.research_history.append({
@@ -320,7 +395,8 @@ class ResearchOrchestrator:
             'agents_used': list(self.agents.keys()),
             'status': 'completed',
             'execution_time': execution_time,
-            'execution_mode': 'parallel'
+            'execution_mode': 'parallel',
+            'has_presentation': bool(presentation)
         })
 
         self.logger.info(f"Parallel research completed for {city}, {country} in {execution_time:.2f}s")

@@ -9,9 +9,13 @@ from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import logging
 from datetime import datetime
+import sys
 
-from .document_store import DocumentStore, get_document_store
-from .pdf_processor import PDFProcessor, PDFChunk
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent))
+
+from document_store import DocumentStore, get_document_store
+from pdf_processor import PDFProcessor, PDFChunk
 
 
 class RetrievalResult:
