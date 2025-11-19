@@ -2,13 +2,15 @@
 # Install with: pip install -r requirements-rag.txt
 
 # Vector database for document storage
-chromadb>=0.4.0
+chromadb>=0.4.0,<1.0.0
 
 # Multilingual embeddings
-sentence-transformers>=2.2.0
+sentence-transformers>=2.2.0,<3.0.0
 
 # PDF parsing with advanced features
-docling>=1.0.0
+# IMPORTANT: Pinned to v1.x due to segfault issues with v2.44.0 in sandboxed environments
+# See DEPENDENCY_ISSUES.md for details and alternative solutions
+docling>=1.0.0,<2.0.0
 
 # Additional dependencies that may be needed
 # (docling will install most of these automatically)
