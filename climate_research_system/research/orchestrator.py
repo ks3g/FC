@@ -225,7 +225,7 @@ class ResearchOrchestrator:
         self.state_manager.save_research_results(research_id, results)
         self.state_manager.save_validation_report(research_id, validation_report)
         if presentation:
-            self.state_manager.save_state(f"presentation_{research_id}", presentation)
+            self.state_manager.save_presentation(research_id, presentation)
 
         # Update history
         self.research_history.append({
@@ -384,7 +384,7 @@ class ResearchOrchestrator:
         self.state_manager.save_research_results(research_id, results)
         self.state_manager.save_validation_report(research_id, validation_report)
         if presentation:
-            self.state_manager.save_state(f"presentation_{research_id}", presentation)
+            self.state_manager.save_presentation(research_id, presentation)
 
         # Update history
         self.research_history.append({

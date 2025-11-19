@@ -20,6 +20,18 @@ class LLMProvider(Enum):
     OLLAMA = "ollama"
 
 
+class EnumJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles Enum types."""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        if hasattr(obj, '__dict__'):
+            return {k: v.value if isinstance(v, Enum) else v
+                    for k, v in obj.__dict__.items()
+                    if not k.startswith('_')}
+        return super().default(obj)
+
+
 class LLMClient:
     """
     Universal LLM client for agent integration.
@@ -257,7 +269,7 @@ class LLMClient:
         Returns:
             Parsed JSON response
         """
-        schema_str = json.dumps(schema, indent=2)
+        schema_str = json.dumps(schema, indent=2, cls=EnumJSONEncoder)
 
         enhanced_prompt = f"""
 {prompt}
