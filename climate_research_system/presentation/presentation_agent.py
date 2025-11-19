@@ -10,10 +10,24 @@ from datetime import datetime
 import sys
 from pathlib import Path
 import json
+from enum import Enum
 
 sys.path.append(str(Path(__file__).parent.parent))
 from core.agent_base import Agent, AgentStatus
 from core.message import Message, MessageType
+
+
+class EnumJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles Enum types."""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        if hasattr(obj, '__dict__'):
+            # Convert objects to dict, handling Enums
+            return {k: v.value if isinstance(v, Enum) else v
+                    for k, v in obj.__dict__.items()
+                    if not k.startswith('_')}
+        return super().default(obj)
 
 
 class PresentationAgent(Agent):
@@ -154,7 +168,7 @@ Write in professional, accessible language suitable for decision-makers."""
 
         try:
             response = self.llm.generate(prompt, max_tokens=500)
-            return response.strip()
+            return response['content'].strip() if isinstance(response, dict) else response.strip()
         except Exception as e:
             self.logger.error(f"Error generating executive summary: {e}")
             return f"Executive Summary for {city}, {country}\n\nA comprehensive climate research analysis was conducted, examining multiple dimensions including climate data, emissions, vulnerabilities, and adaptation strategies. See detailed findings below."
@@ -173,7 +187,7 @@ Write in professional, accessible language suitable for decision-makers."""
             agent_name = agent_id.replace('_', ' ').title()
 
             # Summarize this agent's findings
-            data_str = json.dumps(data, indent=2) if isinstance(data, dict) else str(data)
+            data_str = json.dumps(data, indent=2, cls=EnumJSONEncoder) if isinstance(data, dict) else str(data)
 
             prompt = f"""You are a climate research analyst preparing a detailed findings section.
 
@@ -192,7 +206,8 @@ Write in clear, professional language."""
 
             try:
                 response = self.llm.generate(prompt, max_tokens=300)
-                detailed[agent_name] = response.strip()
+                content = response['content'] if isinstance(response, dict) else response
+                detailed[agent_name] = content.strip()
             except Exception as e:
                 self.logger.error(f"Error generating findings for {agent_id}: {e}")
                 detailed[agent_name] = f"Data collected from {agent_name}. See raw data for details."
@@ -227,16 +242,17 @@ Format as a numbered list. Each recommendation should be 1-2 sentences."""
 
         try:
             response = self.llm.generate(prompt, max_tokens=500)
+            content = response['content'] if isinstance(response, dict) else response
             # Parse recommendations into list
             recommendations = []
-            for line in response.strip().split('\n'):
+            for line in content.strip().split('\n'):
                 line = line.strip()
                 if line and (line[0].isdigit() or line.startswith('-') or line.startswith('•')):
                     # Remove numbering/bullets
                     clean_line = line.lstrip('0123456789.-•) ').strip()
                     if clean_line:
                         recommendations.append(clean_line)
-            return recommendations if recommendations else [response.strip()]
+            return recommendations if recommendations else [content.strip()]
         except Exception as e:
             self.logger.error(f"Error generating recommendations: {e}")
             return [
@@ -273,15 +289,16 @@ Format as a bullet list."""
 
         try:
             response = self.llm.generate(prompt, max_tokens=300)
+            content = response['content'] if isinstance(response, dict) else response
             # Parse insights into list
             insights = []
-            for line in response.strip().split('\n'):
+            for line in content.strip().split('\n'):
                 line = line.strip()
                 if line and (line.startswith('-') or line.startswith('•') or line.startswith('*')):
                     clean_line = line.lstrip('-•* ').strip()
                     if clean_line:
                         insights.append(clean_line)
-            return insights if insights else [response.strip()]
+            return insights if insights else [content.strip()]
         except Exception as e:
             self.logger.error(f"Error generating key insights: {e}")
             return [

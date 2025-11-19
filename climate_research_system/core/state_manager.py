@@ -100,6 +100,36 @@ class StateManager:
         report['saved_at'] = datetime.now().isoformat()
         return file_opener.write_json(file_path, report)
 
+    def save_presentation(self, research_id: str, presentation: Dict[str, Any]) -> bool:
+        """
+        Save presentation.
+
+        Args:
+            research_id: Research identifier
+            presentation: Presentation data
+
+        Returns:
+            True if successful
+        """
+        file_path = self.storage_dir / f"presentation_{research_id}.json"
+        presentation['saved_at'] = datetime.now().isoformat()
+        return file_opener.write_json(file_path, presentation)
+
+    def save_state(self, state_id: str, state: Dict[str, Any]) -> bool:
+        """
+        Save generic state data.
+
+        Args:
+            state_id: State identifier
+            state: State data
+
+        Returns:
+            True if successful
+        """
+        file_path = self.storage_dir / f"{state_id}.json"
+        state['saved_at'] = datetime.now().isoformat()
+        return file_opener.write_json(file_path, state)
+
     def list_research_results(self) -> list:
         """
         List all available research results.

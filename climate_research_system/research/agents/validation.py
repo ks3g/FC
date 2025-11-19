@@ -9,6 +9,7 @@ from datetime import datetime
 import json
 import sys
 from pathlib import Path
+from enum import Enum
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from core.agent_base import Agent, AgentStatus
@@ -23,6 +24,19 @@ from core.source_tracker import (
     determine_reliability_tier
 )
 from core.source_database import get_source_database
+
+
+class EnumJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles Enum types."""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        if hasattr(obj, '__dict__'):
+            # Convert objects to dict, handling Enums
+            return {k: v.value if isinstance(v, Enum) else v
+                    for k, v in obj.__dict__.items()
+                    if not k.startswith('_')}
+        return super().default(obj)
 
 
 class ValidationAgent(Agent):
@@ -297,7 +311,7 @@ Provide structured assessments with confidence scores and recommendations."""
             prompt = f"""Assess the quality and reliability of this climate research data:
 
 Data Summary:
-{json.dumps(results, indent=2)[:1000]}
+{json.dumps(results, indent=2, cls=EnumJSONEncoder)[:1000]}
 
 Sources ({len(sources)}):
 {self._format_sources_for_llm(sources)}

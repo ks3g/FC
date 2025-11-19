@@ -8,6 +8,7 @@ import csv
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 from contextlib import contextmanager
+from enum import Enum
 
 
 class FileOpenerError(Exception):
@@ -23,6 +24,19 @@ class FileNotFoundError(FileOpenerError):
 class PermissionError(FileOpenerError):
     """Raised when permission is denied."""
     pass
+
+
+class EnumJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles Enum types."""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        if hasattr(obj, '__dict__'):
+            # Convert objects to dict, handling Enums
+            return {k: v.value if isinstance(v, Enum) else v
+                    for k, v in obj.__dict__.items()
+                    if not k.startswith('_')}
+        return super().default(obj)
 
 
 @contextmanager
@@ -190,7 +204,7 @@ def write_json(file_path: Union[str, Path], data: Any,
     """
     try:
         with open_file(file_path, 'w', encoding) as f:
-            json.dump(data, f, indent=indent, ensure_ascii=False)
+            json.dump(data, f, indent=indent, ensure_ascii=False, cls=EnumJSONEncoder)
         return True
     except FileOpenerError as e:
         print(f"Error: {e}")
